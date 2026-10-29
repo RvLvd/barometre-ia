@@ -1,0 +1,479 @@
+<title>Baromètre IA</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout : appli plein écran, en-tête avec progression par section, fil de discussion, zone de réponse ancrée en bas */
+:root{
+  --bg:#EEF1F6; --surface:#FFFFFF; --ink:#16202E; --muted:#5B6678; --line:#D6DCE6;
+  --accent:#2F4BD8; --accent-ink:#FFFFFF; --accent-soft:#E2E7FB; --user:#16202E; --user-ink:#F4F6FA;
+  --ok:#1E7A4F;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F141C; --surface:#18202C; --ink:#E6EBF3; --muted:#97A2B4; --line:#2A3443;
+  --accent:#7B90FF; --accent-ink:#0F141C; --accent-soft:#222C47; --user:#E6EBF3; --user-ink:#0F141C; --ok:#5FC795; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F141C; --surface:#18202C; --ink:#E6EBF3; --muted:#97A2B4; --line:#2A3443;
+  --accent:#7B90FF; --accent-ink:#0F141C; --accent-soft:#222C47; --user:#E6EBF3; --user-ink:#0F141C; --ok:#5FC795; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5}
+.app{height:100%;display:flex;flex-direction:column;max-width:760px;margin:0 auto}
+header{padding-block:16px 12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:12px}
+.mark{width:40px;height:40px;border-radius:12px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:15px;flex:none}
+.top h1{font-family:var(--f-display);font-size:20px;line-height:1.1;margin:0;font-weight:700;letter-spacing:-.01em}
+.top p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.top .tid{min-width:0;flex:1}
+.wave{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.steps{display:flex;gap:6px;list-style:none;margin:0;padding:0}
+.steps li{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+.steps li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.steps li i{display:block;height:4px;border-radius:2px;background:var(--line)}
+.steps li.done i{background:var(--accent)}
+.steps li.now i{background:linear-gradient(90deg,var(--accent) 50%,var(--line) 50%)}
+.steps li.now{color:var(--ink);font-weight:700}
+#log{flex:1;overflow-y:auto;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.msg{max-width:min(560px,88%);padding:10px 14px;border-radius:16px;animation:in .25s ease-out both;overflow-wrap:anywhere}
+.bot{align-self:flex-start;background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:4px}
+.bot strong{font-weight:700}
+.bot.q{font-weight:700}
+.bot .hint{display:block;font-weight:400;color:var(--muted);font-size:14px;margin-top:2px}
+.me{align-self:flex-end;background:var(--user);color:var(--user-ink);border-bottom-right-radius:4px}
+.typing{display:inline-flex;gap:4px;padding:14px}
+.typing b{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:blink 1s infinite}
+.typing b:nth-child(2){animation-delay:.15s}.typing b:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.dock{border-top:1px solid var(--line);background:var(--surface);padding-block:14px calc(14px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.dock:empty{display:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;cursor:pointer}
+.chip{border:1.5px solid var(--accent);background:transparent;color:var(--accent);border-radius:999px;padding:8px 14px;font-weight:700;font-size:15px;text-align:left}
+.chip:hover{background:var(--accent-soft)}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.chip.ghost{border-color:var(--line);color:var(--muted);font-weight:400}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.scale .chip{text-align:center;padding:10px 0;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.scale .chip small{font-weight:400;font-size:11px;line-height:1.2;padding:0 2px}
+.ends{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:flex-end}
+textarea,input[type=text]{flex:1;min-width:0;font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;resize:none}
+textarea:focus,input:focus{outline:none;border-color:var(--accent)}
+.send{background:var(--accent);color:var(--accent-ink);border:none;border-radius:12px;padding:10px 16px;font-weight:700}
+.send:disabled{opacity:.4;cursor:default}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.link{background:none;border:none;color:var(--muted);text-decoration:underline;padding:0}
+.link:hover{color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.recap{align-self:stretch;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;animation:in .25s ease-out both}
+.recap h2{font-family:var(--f-display);font-size:17px;margin:0}
+.recap .note{font-size:13px;color:var(--muted);margin:0}
+.recap pre{margin:0;max-height:240px;overflow:auto;background:var(--bg);border-radius:10px;padding:10px;font-size:12px;line-height:1.45}
+.recap .row{align-items:center;flex-wrap:wrap}
+@media (prefers-reduced-motion: reduce){.msg,.recap{animation:none}.typing b{animation:none;opacity:.6}}
+@media (max-width:440px){.scale .chip small{display:none}.steps li span{font-size:11px}}
+</style>
+
+<div class="app">
+  <header>
+    <div class="top">
+      <div class="mark" aria-hidden="true">IA</div>
+      <div class="tid"><h1 id="t-title"></h1><p id="t-sub"></p></div>
+      <span class="wave" id="t-wave"></span>
+    </div>
+    <ol class="steps" id="steps" aria-label="Progression"></ol>
+  </header>
+  <div id="log" role="log" aria-live="polite"></div>
+  <div class="dock" id="dock"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js"></script>
+<script>
+/* =====================================================================
+   CONFIGURATION DU QUESTIONNAIRE — tout se modifie ici
+   ---------------------------------------------------------------------
+   Types de questions :
+     say    : message du bot, sans réponse attendue
+     choice : un seul choix (options)
+     multi  : plusieurs choix (options), "other: true" ajoute "Autre…"
+     scale  : échelle de 1 à 5 (labels optionnels)
+     text   : réponse libre ("optional: true" ajoute "Passer")
+     perTool: répète les sous-questions "ask" pour chaque outil de TOOLS
+   Options : { v: "code_stocké", label: "Texte affiché", reply: "réaction du bot (optionnel)" }
+   Condition : if: { q: "id_question", in: ["valeur1","valeur2"] }
+               (pour les questions multi : vrai si au moins une valeur cochée)
+   Dans perTool, {tool} est remplacé par le nom de l'outil et les id
+   deviennent "outil_<id outil>_<id question>".
+   ===================================================================== */
+const SURVEY = {
+  title: "Baromètre IA",
+  subtitle: "3 minutes · réponses anonymes",
+  wave: "T4 2026",
+  // Adresse du flux Power Automate (ou du script Google). Laisser vide = mode démo.
+  // Colle-la entre les guillemets, par exemple : endpoint: "https://....powerplatform.com/....",
+  endpoint: "https://default24c7225529354a1eb475bf78f90aea.35.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/20/workflows/6b6021c87595415781d1ecac2a09397a/triggers/manual/paths/invoke?api-version=1",
+  // Connexion Microsoft (fourni par l'IT après l'inscription de l'application dans Entra ID).
+  // Laisser clientId vide = pas de connexion demandée.
+  auth: { clientId: "", tenantId: "" },
+  sections: ["Profil", "Outils internes", "Outils externes", "Ressenti"],
+
+  // Outils IA mis à disposition par l'entreprise : fréquence + maîtrise pour chacun
+  TOOLS: [
+    { id: "mistral", name: "Mistral",    hint: "la version fournie par l'entreprise" },
+    { id: "keai",    name: "Keai tools", hint: "tous modules confondus : recherche, traduction, synthèse…" }
+  ],
+
+  // Modules Keai tools : fréquence demandée seulement pour les modules cochés
+  KEAI_MODULES: [
+    { id: "recherche",     name: "Recherche" },
+    { id: "traduction",    name: "Traduction" },
+    { id: "synthese",      name: "Synthèse" },
+    { id: "analyse",       name: "Analyse" },
+    { id: "ecriture",      name: "Écriture" },
+    { id: "cr",            name: "CR" },
+    { id: "transcription", name: "Transcription" },
+    { id: "prompt",        name: "Prompt" },
+    { id: "ppt",           name: "PPT" },
+    { id: "impact",        name: "Impact" },
+    { id: "anonymisation", name: "Anonymisation" }
+  ],
+
+  steps: [
+    { type: "say", text: "Bonjour 👋 Je suis le baromètre IA de l'entreprise. Tous les 3 mois, je prends la température sur l'usage de l'IA au travail." },
+    { type: "say", text: "<strong>Tes réponses sont confidentielles.</strong> On enregistre que tu as participé, pour ne pas te relancer inutilement, mais tes réponses sont stockées à part, sans ton nom, et ne sont jamais analysées individuellement. Réponds franchement, il n'y a pas de mauvaise réponse. Ça prend environ 3 minutes." },
+
+    // ---------- 1. PROFIL ----------
+    { id: "direction", section: 0, type: "choice", ask: "Pour commencer, dans quelle direction travailles-tu ?",
+      options: [
+        { v: "commerce", label: "Commerce / Ventes" }, { v: "marketing", label: "Marketing / Communication" },
+        { v: "finance", label: "Finance / Juridique" }, { v: "rh", label: "RH" },
+        { v: "tech", label: "IT / Tech / Data" }, { v: "ops", label: "Opérations / Production" },
+        { v: "autre", label: "Autre" }
+      ] },
+    { id: "manager", section: 0, type: "choice", ask: "Est-ce que tu encadres une équipe ?",
+      options: [ { v: "oui", label: "Oui" }, { v: "non", label: "Non" } ] },
+
+    // ---------- 2. OUTILS INTERNES (fréquence + maîtrise) ----------
+    { type: "say", section: 1, text: "Parlons des outils IA que l'entreprise met à ta disposition." },
+    { type: "perTool", section: 1, ask: [
+      { id: "freq", type: "choice", ask: "À quelle fréquence utilises-tu <strong>{tool}</strong> ?", hintFromTool: true,
+        options: [
+          { v: "inconnu", label: "Je ne connais pas" }, { v: "pas_acces", label: "Je n'y ai pas accès" },
+          { v: "jamais", label: "Jamais" }, { v: "mensuel", label: "Moins d'1 fois par mois" },
+          { v: "quelques_fois", label: "Quelques fois par mois" }, { v: "hebdo", label: "Chaque semaine" },
+          { v: "quotidien", label: "Tous les jours" }
+        ] },
+      { id: "maitrise", type: "scale", ask: "Comment évalues-tu ta maîtrise de <strong>{tool}</strong> ?",
+        if: { q: "freq", in: ["mensuel", "quelques_fois", "hebdo", "quotidien"] },
+        labels: ["Débutant", "Notions", "À l'aise", "Avancé", "Expert"], ends: ["Je découvre", "Je forme les autres"] }
+    ] },
+
+    // Détail des modules Keai tools, seulement si Keai est utilisé
+    { id: "keai_modules", section: 1, type: "multi", optionsFrom: "KEAI_MODULES",
+      if: { q: "outil_keai_freq", in: ["mensuel", "quelques_fois", "hebdo", "quotidien"] },
+      ask: "Quels modules de <strong>Keai tools</strong> utilises-tu ?", hint: "Plusieurs réponses possibles" },
+    { type: "perTool", section: 1, list: "KEAI_MODULES", prefix: "keai", eachIf: "keai_modules", ask: [
+      { id: "freq", type: "choice", ask: "Et le module <strong>{tool}</strong>, à quelle fréquence ?",
+        options: [
+          { v: "mensuel", label: "Moins d'1 fois par mois" }, { v: "quelques_fois", label: "Quelques fois par mois" },
+          { v: "hebdo", label: "Chaque semaine" }, { v: "quotidien", label: "Tous les jours" }
+        ] }
+    ] },
+
+    // ---------- 3. SHADOW IA ----------
+    { id: "shadow", section: 2, type: "choice",
+      ask: "Ces 3 derniers mois, as-tu utilisé <strong>pour ton travail</strong> des outils IA que l'entreprise ne fournit pas ?",
+      hint: "Par exemple ChatGPT ou Claude sur un compte perso, Gemini, Perplexity, Mistral sur un compte perso, DeepL…",
+      options: [
+        { v: "regulier", label: "Oui, régulièrement", reply: "Merci pour ta franchise, c'est exactement ce qu'on cherche à comprendre." },
+        { v: "occasionnel", label: "Oui, de temps en temps", reply: "Merci pour ta franchise, c'est exactement ce qu'on cherche à comprendre." },
+        { v: "non", label: "Non" },
+        { v: "nsp", label: "Je ne sais pas trop" }
+      ] },
+    { id: "shadow_outils", section: 2, type: "multi", other: true, if: { q: "shadow", in: ["regulier", "occasionnel"] },
+      ask: "Lesquels ?", hint: "Plusieurs réponses possibles",
+      options: [
+        { v: "chatgpt_perso", label: "ChatGPT (compte perso)" }, { v: "claude", label: "Claude" },
+        { v: "gemini", label: "Gemini" }, { v: "perplexity", label: "Perplexity" },
+        { v: "mistral_perso", label: "Mistral (compte perso)" }, { v: "copilot", label: "Copilot" },
+        { v: "deepl", label: "DeepL" }, { v: "image", label: "Outil d'image ou vidéo" }
+      ] },
+    { id: "shadow_usages", section: 2, type: "multi", other: true, if: { q: "shadow", in: ["regulier", "occasionnel"] },
+      ask: "Pour quoi faire, principalement ?", hint: "Plusieurs réponses possibles",
+      options: [
+        { v: "redaction", label: "Rédiger ou reformuler" }, { v: "resume", label: "Résumer des documents" },
+        { v: "recherche", label: "Chercher de l'information" }, { v: "traduction", label: "Traduire" },
+        { v: "code", label: "Coder ou automatiser" }, { v: "data", label: "Analyser des données" },
+        { v: "idees", label: "Trouver des idées" }, { v: "visuels", label: "Créer des visuels" }
+      ] },
+    { id: "shadow_raisons", section: 2, type: "multi", other: true, if: { q: "shadow", in: ["regulier", "occasionnel"] },
+      ask: "Qu'est-ce qui te fait préférer ces outils à ceux de l'entreprise ?", hint: "Plusieurs réponses possibles",
+      options: [
+        { v: "qualite", label: "Ils donnent de meilleurs résultats" }, { v: "habitude", label: "Je les connais déjà" },
+        { v: "fonctions", label: "Ils ont des fonctions qui manquent en interne" }, { v: "acces", label: "Je n'ai pas accès aux outils internes" },
+        { v: "rapidite", label: "Ils sont plus rapides ou plus simples" }, { v: "ignorance", label: "Je ne connaissais pas les outils internes" },
+        { v: "limites", label: "Les outils internes sont trop limités ou bridés" }, { v: "mobile", label: "Je peux les utiliser sur mon téléphone" }
+      ] },
+    { id: "shadow_verbatim", section: 2, type: "text", optional: true, if: { q: "shadow", in: ["regulier", "occasionnel"] },
+      ask: "Qu'est-ce qui te ferait passer aux outils internes ?", hint: "Une phrase suffit. Tu peux passer." },
+
+    // ---------- 4. RESSENTI ----------
+    { type: "say", section: 3, text: "Dernière partie : ton ressenti sur la transformation IA de l'entreprise." },
+    { id: "ressenti", section: 3, type: "scale", ask: "Globalement, comment vis-tu l'arrivée de l'IA dans ton travail ?",
+      labels: ["😟", "🙁", "😐", "🙂", "🤩"], ends: ["Très inquiet·e", "Très enthousiaste"] },
+    { id: "rythme", section: 3, type: "choice", ask: "Le rythme de la transformation IA dans l'entreprise te paraît…",
+      options: [
+        { v: "trop_lent", label: "Trop lent" }, { v: "bon", label: "Bien dosé" },
+        { v: "trop_rapide", label: "Trop rapide" }, { v: "nsp", label: "Je ne vois pas de transformation" }
+      ] },
+    { id: "accompagnement", section: 3, type: "scale", ask: "Te sens-tu accompagné·e (formation, informations, support) ?",
+      labels: ["1", "2", "3", "4", "5"], ends: ["Pas du tout", "Tout à fait"] },
+    { id: "besoin", section: 3, type: "text", optional: true,
+      ask: "Une chose qui t'aiderait à mieux utiliser l'IA au travail ?", hint: "Formation, outil, cas d'usage… Tu peux passer." },
+
+    { type: "say", text: "Merci, c'est terminé ! 🙏 Les résultats globaux seront partagés à toute l'entreprise. Rendez-vous dans 3 mois." }
+  ]
+};
+/* ====================== FIN DE LA CONFIGURATION ====================== */
+
+const ACKS = ["Noté.", "Merci !", "C'est noté.", "Ok, merci.", "Parfait."];
+const log = document.getElementById("log"), dock = document.getElementById("dock");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const wait = ms => new Promise(r => setTimeout(r, reduce ? 0 : ms));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// Déplie les blocs perTool en questions simples
+function flatten(steps) {
+  const out = [];
+  let sec = 0;
+  for (const s of steps) {
+    if (s.section !== undefined) sec = s.section;
+    if (s.type !== "perTool") {
+      const opts = s.optionsFrom ? SURVEY[s.optionsFrom].map(t => ({ v: t.id, label: t.name })) : s.options;
+      out.push({ ...s, options: opts, section: s.section ?? sec }); continue;
+    }
+    const list = s.list ? SURVEY[s.list] : SURVEY.TOOLS, prefix = s.prefix || "outil";
+    for (const t of list) for (const q of s.ask) {
+      const id = `${prefix}_${t.id}_${q.id}`;
+      const fill = x => x && x.replaceAll("{tool}", esc(t.name));
+      const cond = q.if ? { ...q.if, q: `${prefix}_${t.id}_${q.if.q}` } : s.eachIf ? { q: s.eachIf, in: [t.id] } : undefined;
+      out.push({ ...q, id, section: sec, ask: fill(q.ask), hint: q.hintFromTool ? t.hint : fill(q.hint), if: cond });
+    }
+  }
+  return out;
+}
+const FLOW = flatten(SURVEY.steps);
+
+let ptr = 0, answers = {}, checkpoints = [], ackI = 0, busy = false;
+
+function header(section) {
+  document.getElementById("t-title").textContent = SURVEY.title;
+  document.getElementById("t-sub").textContent = SURVEY.subtitle;
+  document.getElementById("t-wave").textContent = SURVEY.wave;
+  document.getElementById("steps").innerHTML = SURVEY.sections.map((n, i) =>
+    `<li class="${i < section ? "done" : i === section ? "now" : ""}"><span>${esc(n)}</span><i></i></li>`).join("");
+}
+function add(html, cls) {
+  const d = document.createElement("div");
+  d.className = "msg " + cls; d.innerHTML = html;
+  log.appendChild(d); log.scrollTop = log.scrollHeight; return d;
+}
+async function botSay(html, cls = "") {
+  const t = add('<span class="typing" aria-label="Le bot écrit"><b></b><b></b><b></b></span>', "bot");
+  t.style.padding = "0";
+  await wait(Math.min(1100, 350 + html.length * 6));
+  t.remove(); return add(html, "bot " + cls);
+}
+function test(cond) {
+  if (!cond) return true;
+  const a = answers[cond.q];
+  if (a === undefined) return false;
+  return Array.isArray(a) ? a.some(v => cond.in.includes(v)) : cond.in.includes(a);
+}
+function labelOf(step, v) {
+  const o = (step.options || []).find(o => o.v === v); return o ? o.label : v;
+}
+
+async function run() {
+  busy = true;
+  while (ptr < FLOW.length) {
+    const s = FLOW[ptr];
+    if (!test(s.if)) { ptr++; continue; }
+    header(s.section ?? 0);
+    if (s.type === "say") { await botSay(s.text); ptr++; continue; }
+    checkpoints.push({ ptr, nodes: log.children.length, answers: JSON.parse(JSON.stringify(answers)) });
+    await botSay(s.ask + (s.hint ? `<span class="hint">${esc(s.hint)}</span>` : ""), "q");
+    busy = false; renderInput(s); return;
+  }
+  header(SURVEY.sections.length); dock.innerHTML = ""; finish();
+}
+
+async function answer(s, value, display) {
+  if (busy) return;
+  busy = true; dock.innerHTML = "";
+  answers[s.id] = value;
+  add(esc(display), "me");
+  const opt = s.type === "choice" && (s.options || []).find(o => o.v === value);
+  const reply = opt && opt.reply;
+  if (reply) await botSay(reply);
+  else if (Math.random() < .45 && value !== null) await botSay(ACKS[ackI++ % ACKS.length]);
+  ptr++; run();
+}
+
+function undo() {
+  if (busy || checkpoints.length < 2) return;
+  checkpoints.pop();
+  const c = checkpoints.pop();
+  while (log.children.length > c.nodes) log.lastChild.remove();
+  answers = c.answers; ptr = c.ptr; run();
+}
+
+function metaRow(extra = "") {
+  return `<div class="meta"><button class="link" id="undo" ${checkpoints.length < 2 ? "hidden" : ""}>← Modifier ma réponse précédente</button>${extra}</div>`;
+}
+
+function renderInput(s) {
+  if (s.type === "choice") {
+    dock.innerHTML = `<div class="chips">${s.options.map(o => `<button class="chip" data-v="${esc(o.v)}">${esc(o.label)}</button>`).join("")}</div>` + metaRow();
+    dock.querySelectorAll(".chip").forEach(b => b.onclick = () => answer(s, b.dataset.v, labelOf(s, b.dataset.v)));
+  }
+  else if (s.type === "multi") {
+    const sel = new Set();
+    dock.innerHTML = `<div class="chips">${s.options.map(o => `<button class="chip" aria-pressed="false" data-v="${esc(o.v)}">${esc(o.label)}</button>`).join("")}
+      ${s.other ? `<button class="chip ghost" id="oth" aria-pressed="false">Autre…</button>` : ""}</div>
+      <div class="row" id="othrow" hidden><input type="text" id="othtxt" placeholder="Précise…" aria-label="Autre réponse"></div>
+      <div class="row"><button class="send" id="ok" disabled>Valider</button></div>` + metaRow();
+    const ok = dock.querySelector("#ok"), othrow = dock.querySelector("#othrow"), othtxt = dock.querySelector("#othtxt");
+    const refresh = () => ok.disabled = !(sel.size || (!othrow.hidden && othtxt.value.trim()));
+    dock.querySelectorAll(".chip[data-v]").forEach(b => b.onclick = () => {
+      const v = b.dataset.v; sel.has(v) ? sel.delete(v) : sel.add(v);
+      b.setAttribute("aria-pressed", sel.has(v)); refresh();
+    });
+    if (s.other) {
+      const ob = dock.querySelector("#oth");
+      ob.onclick = () => { othrow.hidden = !othrow.hidden; ob.setAttribute("aria-pressed", !othrow.hidden); if (!othrow.hidden) othtxt.focus(); refresh(); };
+      othtxt.oninput = refresh;
+    }
+    ok.onclick = () => {
+      const vals = [...sel];
+      const labels = vals.map(v => labelOf(s, v));
+      if (s.other && !othrow.hidden && othtxt.value.trim()) { vals.push("autre: " + othtxt.value.trim()); labels.push(othtxt.value.trim()); }
+      answer(s, vals, labels.join(", "));
+    };
+  }
+  else if (s.type === "scale") {
+    const L = s.labels || ["1", "2", "3", "4", "5"];
+    dock.innerHTML = `<div class="scale">${L.map((l, i) => `<button class="chip" data-v="${i + 1}" aria-label="${i + 1} sur 5, ${esc(l)}"><span>${i + 1}</span>${l !== String(i + 1) ? `<small>${esc(l)}</small>` : ""}</button>`).join("")}</div>
+      ${s.ends ? `<div class="ends"><span>${esc(s.ends[0])}</span><span>${esc(s.ends[1])}</span></div>` : ""}` + metaRow();
+    dock.querySelectorAll(".chip").forEach(b => b.onclick = () => {
+      const v = +b.dataset.v; answer(s, v, `${v}/5 · ${L[v - 1]}`);
+    });
+  }
+  else if (s.type === "text") {
+    dock.innerHTML = `<div class="row"><textarea id="txt" rows="2" placeholder="Écris ta réponse…" aria-label="Ta réponse"></textarea><button class="send" id="ok" disabled>Envoyer</button></div>`
+      + metaRow(s.optional ? `<button class="link" id="skip">Passer</button>` : "");
+    const t = dock.querySelector("#txt"), ok = dock.querySelector("#ok");
+    t.oninput = () => ok.disabled = !t.value.trim();
+    t.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey && t.value.trim()) { e.preventDefault(); ok.click(); } };
+    ok.onclick = () => answer(s, t.value.trim(), t.value.trim());
+    if (s.optional) dock.querySelector("#skip").onclick = () => answer(s, null, "(passé)");
+    t.focus({ preventScroll: true });
+  }
+  const u = dock.querySelector("#undo"); if (u) u.onclick = undo;
+}
+
+async function finish() {
+  // Identifiant aléatoire : regroupe les lignes d'un même répondant sans l'identifier
+  const repondant = (window.crypto && crypto.randomUUID) ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10);
+  const lignes = Object.keys(answers).map(k => ({
+    question: k,
+    reponse: answers[k] === null ? "" : Array.isArray(answers[k]) ? answers[k].join(" | ") : String(answers[k])
+  }));
+  // Date du jour seulement (pas l'heure), pour ne pas rapprocher réponses et participants
+  const jour = new Date().toISOString().slice(0, 10);
+  const payload = { vague: SURVEY.wave, horodatage: jour, repondant, lignes, reponses: answers };
+  if (account) payload.participant = account.username;
+  if (SURVEY.endpoint) {
+    dock.innerHTML = `<div class="meta"><span>Envoi en cours…</span></div>`;
+    try {
+      let res;
+      if (msalApp) {
+        const token = await getToken();
+        res = await fetch(SURVEY.endpoint, { method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error("Le serveur a répondu " + res.status);
+      } else {
+        await fetch(SURVEY.endpoint, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(payload) });
+      }
+      dock.innerHTML = `<div class="meta"><span>Réponses envoyées ✓ Merci !</span></div>`;
+    } catch (e) {
+      dock.innerHTML = `<div class="meta"><span>L'envoi a échoué (${esc(e.message || e)}). Réessaie dans un instant.</span><button class="send" id="retry">Réessayer</button></div>`;
+      dock.querySelector("#retry").onclick = finish;
+    }
+    return;
+  }
+  const json = JSON.stringify(payload, null, 2);
+  const r = document.createElement("div"); r.className = "recap";
+  r.innerHTML = `<h2>Mode démo : voici ce qui serait enregistré</h2>
+    <p class="note">Une fois l'adresse du flux Power Automate renseignée dans la configuration, ces réponses y partent automatiquement et cet encadré disparaît.</p>
+    <pre id="json"></pre>
+    <div class="row"><button class="send" id="copy">Copier le JSON</button><button class="link" id="again">Recommencer le questionnaire</button><span class="note" id="cmsg"></span></div>`;
+  r.querySelector("#json").textContent = json;
+  log.appendChild(r); log.scrollTop = log.scrollHeight;
+  r.querySelector("#copy").onclick = async () => {
+    try { await navigator.clipboard.writeText(json); r.querySelector("#cmsg").textContent = "Copié"; }
+    catch { const sel = getSelection(), rg = document.createRange(); rg.selectNodeContents(r.querySelector("#json")); sel.removeAllRanges(); sel.addRange(rg); r.querySelector("#cmsg").textContent = "Texte sélectionné, fais Ctrl+C"; }
+  };
+  r.querySelector("#again").onclick = () => { log.innerHTML = ""; ptr = 0; answers = {}; checkpoints = []; run(); };
+}
+
+/* ---------- Connexion Microsoft ---------- */
+let msalApp = null, account = null;
+const SCOPES = ["https://service.flow.microsoft.com//.default"];
+
+async function getToken() {
+  try {
+    return (await msalApp.acquireTokenSilent({ scopes: SCOPES, account })).accessToken;
+  } catch (e) {
+    // Appelé depuis un clic (bouton Réessayer) : la fenêtre de connexion peut s'ouvrir
+    return (await msalApp.acquireTokenPopup({ scopes: SCOPES, account })).accessToken;
+  }
+}
+
+async function start() {
+  header(0);
+  const a = SURVEY.auth || {};
+  if (!a.clientId) { run(); return; }
+  if (!window.msal) {
+    add("Impossible de charger la connexion Microsoft. Vérifie ta connexion internet puis recharge la page.", "bot");
+    return;
+  }
+  msalApp = new msal.PublicClientApplication({
+    auth: { clientId: a.clientId, authority: "https://login.microsoftonline.com/" + a.tenantId,
+            redirectUri: location.origin + location.pathname },
+    cache: { cacheLocation: "sessionStorage" }
+  });
+  try {
+    await msalApp.initialize();
+    const r = await msalApp.handleRedirectPromise();
+    account = (r && r.account) || msalApp.getAllAccounts()[0] || null;
+  } catch (e) {
+    add("La connexion a échoué : " + esc(e.message || e) + ". Recharge la page pour réessayer.", "bot");
+    return;
+  }
+  if (account) {
+    msalApp.setActiveAccount(account);
+    const prenom = (account.name || "").split(" ")[0];
+    if (prenom) await botSay("Merci " + esc(prenom) + ", tu es bien connecté·e.");
+    run(); return;
+  }
+  await botSay("Pour participer au baromètre IA, connecte-toi d'abord avec ton compte Microsoft professionnel.");
+  dock.innerHTML = `<div class="row"><button class="send" id="login">Se connecter avec Microsoft</button></div>`;
+  dock.querySelector("#login").onclick = () => msalApp.loginRedirect({ scopes: SCOPES });
+}
+
+start();
+</script>
